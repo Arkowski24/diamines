@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <set>
 
 #define BOARD_MSIZE 200
 
@@ -11,6 +12,12 @@
 #define SYM_SPCE ' '
 
 using namespace std;
+
+struct Connection {
+    int to;
+    int dir;
+    set<int> diamonds;
+};
 
 char board[BOARD_MSIZE][BOARD_MSIZE]; //Y, X
 int ySize, xSize;
@@ -28,9 +35,12 @@ int8_t directions[][2] = {
 };
 uint8_t stopDirection[BOARD_MSIZE][BOARD_MSIZE] = {0};
 u_int32_t nodeID[BOARD_MSIZE][BOARD_MSIZE] = {0};
+u_int32_t diamID[BOARD_MSIZE][BOARD_MSIZE] = {0};
 
 int y_start, x_start;
-int diaCount = 0;
+int nodeCount = 0;
+int diamCount = 0;
+vector<vector<Connection>> graph;
 
 void readInput() {
     cin >> ySize >> xSize;
@@ -50,10 +60,7 @@ void processPoint(int y, int x) {
         case SYM_HOLE:
             stopDirection[y][x] = 0xFF;
             return;
-        case SYM_DIAM:
-            diaCount++;
         case SYM_SPCE:
-        case SYM_PCAR:
             for (int dir : dirs) {
                 int y_i = y + directions[dir][0];
                 int x_i = x + directions[dir][1];
@@ -68,22 +75,55 @@ void processPoint(int y, int x) {
 void processInput() {
     readInput();
 
-    int nodes = 0;
     for (int y = 0; y < ySize; ++y) {
         for (int x = 0; x < xSize; ++x) {
-            processPoint(y, x);
-
-            if (stopDirection[y][x] > 0) {
-                nodeID[y][x] = nodes + 1;
-                nodes++;
-            }
-
             if (board[y][x] == SYM_PCAR) {
                 y_start = y;
                 x_start = x;
+                board[y][x] = SYM_SPCE;
+            } else if (board[y][x] == SYM_DIAM) {
+                diamID[y][x] = diamCount + 1;
+                diamCount++;
+                board[y][x] = SYM_SPCE;
+            }
+
+            processPoint(y, x);
+            if (stopDirection[y][x] > 0) {
+                nodeID[y][x] = nodeCount + 1;
+                nodeCount++;
             }
         }
     }
+    graph = vector<vector<Connection>>(nodeCount + 1);
+}
+
+void traverseLane(int y, int x, int dir) {
+    Connection connection;
+    connection.diamonds = set<int>();
+
+    int y_delta = y + directions[dir][0];
+    int x_delta = x + directions[dir][1];
+
+    while (board[y_delta][x_delta] == SYM_SPCE && stopDirection[y_delta][x_delta] == 0) {
+        if (diamID[y_delta][x_delta] > 0) {
+            connection.diamonds.insert(nodeID[y_delta][x_delta]);
+        }
+
+        y_delta += directions[dir][0];
+        x_delta += directions[dir][1];
+    }
+
+    if (board[y_delta][x_delta] == SYM_MINE || nodeID[y_delta][x_delta] == 0) {
+        return;
+    }
+
+    if (diamID[y_delta][x_delta] > 0) {
+        connection.diamonds.insert(nodeID[y_delta][x_delta]);
+    }
+
+    connection.to = nodeID[y_delta][x_delta];
+    connection.dir = dir;
+    graph[nodeID[y_delta][x_delta]].push_back(connection);
 }
 
 void createNode(int y, int x) {
@@ -92,8 +132,7 @@ void createNode(int y, int x) {
     for (int dir : dirs) {
         if (stopDirection[y][x] & (1u << dir)) {
             int altDir = (dir + 4) % 8;
-
-            vector<bool> diamonds(diaCount);
+            traverseLane(y, x, altDir);
         }
     }
 }
