@@ -45,11 +45,12 @@ vector<vector<Connection>> graph;
 void readInput() {
     cin >> ySize >> xSize;
     cin >> expectedSteps;
+    cin.ignore(1);
 
     for (int i = 0; i < ySize; i++) {
         string boardLine;
-        cin >> boardLine;
-        boardLine.copy(board[i], boardLine.length());
+        getline(cin, boardLine);
+        boardLine.copy(board[i], xSize);
     }
 }
 
@@ -99,21 +100,30 @@ void processInput() {
 
 void traverseLane(int y, int x, int dir) {
     Connection connection;
+    connection.dir = dir;
     connection.diamonds = set<int>();
 
-    int y_delta = y + directions[dir][0];
-    int x_delta = x + directions[dir][1];
+    int altDir = (dir + 4) % 8;
+    int y_delta = y + directions[altDir][0];
+    int x_delta = x + directions[altDir][1];
 
-    while (board[y_delta][x_delta] == SYM_SPCE && stopDirection[y_delta][x_delta] == 0) {
+    while (board[y_delta][x_delta] == SYM_SPCE && (stopDirection[y_delta][x_delta] & (1u << dir)) == 0) {
         if (diamID[y_delta][x_delta] > 0) {
             connection.diamonds.insert(nodeID[y_delta][x_delta]);
         }
 
-        y_delta += directions[dir][0];
-        x_delta += directions[dir][1];
+        if (nodeID[y_delta][x_delta] > 0) {
+            Connection connection1 = connection;
+            connection1.to = nodeID[y][x];
+            graph[nodeID[y_delta][x_delta]].push_back(connection1);
+        }
+
+        y_delta += directions[altDir][0];
+        x_delta += directions[altDir][1];
     }
 
-    if (board[y_delta][x_delta] == SYM_MINE || nodeID[y_delta][x_delta] == 0) {
+    // Mine has always nodeID == 0
+    if (nodeID[y_delta][x_delta] == 0) {
         return;
     }
 
@@ -121,8 +131,7 @@ void traverseLane(int y, int x, int dir) {
         connection.diamonds.insert(nodeID[y_delta][x_delta]);
     }
 
-    connection.to = nodeID[y_delta][x_delta];
-    connection.dir = dir;
+    connection.to = nodeID[y][x];
     graph[nodeID[y_delta][x_delta]].push_back(connection);
 }
 
@@ -131,8 +140,7 @@ void createNode(int y, int x) {
 
     for (int dir : dirs) {
         if (stopDirection[y][x] & (1u << dir)) {
-            int altDir = (dir + 4) % 8;
-            traverseLane(y, x, altDir);
+            traverseLane(y, x, dir);
         }
     }
 }
@@ -143,6 +151,43 @@ void createGraph() {
             if (nodeID[y][x] > 0) {
                 createNode(y, x);
             }
+        }
+    }
+
+    if (nodeID[y_start][x_start] == 0) {
+        nodeID[y_start][x_start] = nodeCount + 1;
+        nodeCount++;
+        graph.emplace_back(vector<Connection>());
+
+        int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+        for (int dir : dirs) {
+            Connection connection;
+            connection.dir = dir;
+            connection.diamonds = set<int>();
+
+            int y_delta = y_start + directions[dir][0];
+            int x_delta = x_start + directions[dir][1];
+
+            while (board[y_delta][x_delta] == SYM_SPCE && (stopDirection[y_delta][x_delta] & (1u << dir)) == 0) {
+                if (diamID[y_delta][x_delta] > 0) {
+                    connection.diamonds.insert(nodeID[y_delta][x_delta]);
+                }
+
+                y_delta += directions[dir][0];
+                x_delta += directions[dir][1];
+            }
+
+            // Mine has always nodeID == 0
+            if (nodeID[y_delta][x_delta] == 0) {
+                continue;
+            }
+
+            if (diamID[y_delta][x_delta] > 0) {
+                connection.diamonds.insert(nodeID[y_delta][x_delta]);
+            }
+
+            connection.to = nodeID[y_delta][x_delta];
+            graph[nodeID[y_start][x_start]].push_back(connection);
         }
     }
 }
