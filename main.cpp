@@ -15,7 +15,7 @@ using namespace std;
 
 struct Connection {
     int to;
-    int dir;
+    uint8_t dir;
     set<int> diamonds;
 };
 
@@ -99,7 +99,7 @@ void processInput() {
 }
 
 void traverseLane(int y, int x, int dir) {
-    Connection connection;
+    Connection connection{};
     connection.dir = dir;
     connection.diamonds = set<int>();
 
@@ -109,7 +109,7 @@ void traverseLane(int y, int x, int dir) {
 
     while (board[y_delta][x_delta] == SYM_SPCE && (stopDirection[y_delta][x_delta] & (1u << dir)) == 0) {
         if (diamID[y_delta][x_delta] > 0) {
-            connection.diamonds.insert(nodeID[y_delta][x_delta]);
+            connection.diamonds.insert(diamID[y_delta][x_delta]);
         }
 
         if (nodeID[y_delta][x_delta] > 0) {
@@ -128,7 +128,7 @@ void traverseLane(int y, int x, int dir) {
     }
 
     if (diamID[y_delta][x_delta] > 0) {
-        connection.diamonds.insert(nodeID[y_delta][x_delta]);
+        connection.diamonds.insert(diamID[y_delta][x_delta]);
     }
 
     connection.to = nodeID[y][x];
@@ -161,7 +161,7 @@ void createGraph() {
 
         int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
         for (int dir : dirs) {
-            Connection connection;
+            Connection connection{};
             connection.dir = dir;
             connection.diamonds = set<int>();
 
@@ -170,7 +170,7 @@ void createGraph() {
 
             while (board[y_delta][x_delta] == SYM_SPCE && (stopDirection[y_delta][x_delta] & (1u << dir)) == 0) {
                 if (diamID[y_delta][x_delta] > 0) {
-                    connection.diamonds.insert(nodeID[y_delta][x_delta]);
+                    connection.diamonds.insert(diamID[y_delta][x_delta]);
                 }
 
                 y_delta += directions[dir][0];
@@ -183,7 +183,7 @@ void createGraph() {
             }
 
             if (diamID[y_delta][x_delta] > 0) {
-                connection.diamonds.insert(nodeID[y_delta][x_delta]);
+                connection.diamonds.insert(diamID[y_delta][x_delta]);
             }
 
             connection.to = nodeID[y_delta][x_delta];
@@ -192,10 +192,45 @@ void createGraph() {
     }
 }
 
+
+int searchGraph(int node, int moveCount, uint8_t moveList[], set<int> diams) {
+    if (moveCount > expectedSteps) {
+        return -1;
+    }
+
+    if (diams.size() == diamCount) {
+        return moveCount;
+    }
+
+    for (auto &con : graph[node]) {
+        moveList[moveCount] = con.dir;
+        diams.insert(con.diamonds.begin(), con.diamonds.end());
+        int result = searchGraph(con.to, moveCount + 1, moveList, diams);
+        if (result != -1) {
+            return result;
+        }
+    }
+    return -1;
+}
+
+void findAnswer() {
+    uint8_t moveList[expectedSteps];
+    int startNode = nodeID[y_start][x_start];
+
+    int result = searchGraph(startNode, 0, moveList, set<int>());
+    if (result == -1) {
+        cout << "BRAK" << endl;
+    } else {
+        for (int i = 0; i < result; ++i) {
+            cout << (int) moveList[i];
+        }
+    }
+}
+
 int main() {
     processInput();
     createGraph();
-
+    findAnswer();
 
     return 0;
 }
