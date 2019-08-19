@@ -193,7 +193,7 @@ void createGraph() {
 }
 
 
-int searchGraph(int node, int moveCount, uint8_t moveList[], set<int> diams) {
+int searchGraph(int node, int moveCount, uint8_t moveList[], const set<int> diams) {
     if (moveCount > expectedSteps) {
         return -1;
     }
@@ -204,8 +204,10 @@ int searchGraph(int node, int moveCount, uint8_t moveList[], set<int> diams) {
 
     for (auto &con : graph[node]) {
         moveList[moveCount] = con.dir;
-        diams.insert(con.diamonds.begin(), con.diamonds.end());
-        int result = searchGraph(con.to, moveCount + 1, moveList, diams);
+        set<int> newDiams = diams;
+        newDiams.insert(con.diamonds.begin(), con.diamonds.end());
+
+        int result = searchGraph(con.to, moveCount + 1, moveList, newDiams);
         if (result != -1) {
             return result;
         }
@@ -224,10 +226,12 @@ void findAnswer() {
         for (int i = 0; i < result; ++i) {
             cout << (int) moveList[i];
         }
+        cout << endl;
     }
 }
 
 int main() {
+    iostream::sync_with_stdio(false);
     processInput();
     createGraph();
     findAnswer();
