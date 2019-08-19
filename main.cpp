@@ -1,3 +1,4 @@
+// Arkadiusz Placha
 #include <iostream>
 #include <vector>
 #include <set>
@@ -20,7 +21,7 @@ struct Connection {
 };
 
 char board[BOARD_MSIZE][BOARD_MSIZE]; //Y, X
-int ySize, xSize;
+unsigned int ySize, xSize;
 int expectedSteps;
 
 int8_t directions[][2] = {
@@ -38,8 +39,8 @@ u_int32_t nodeID[BOARD_MSIZE][BOARD_MSIZE] = {0};
 u_int32_t diamID[BOARD_MSIZE][BOARD_MSIZE] = {0};
 
 int y_start, x_start;
-int nodeCount = 0;
-int diamCount = 0;
+u_int32_t nodeCount = 0;
+u_int32_t diamCount = 0;
 vector<vector<Connection>> graph;
 
 void readInput() {
@@ -98,7 +99,7 @@ void processInput() {
     graph = vector<vector<Connection>>(nodeCount + 1);
 }
 
-void traverseLane(int y, int x, int dir) {
+void traverseLane(int y, int x, uint8_t dir) {
     Connection connection{};
     connection.dir = dir;
     connection.diamonds = set<int>();
@@ -136,9 +137,9 @@ void traverseLane(int y, int x, int dir) {
 }
 
 void createNode(int y, int x) {
-    int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint8_t dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
-    for (int dir : dirs) {
+    for (uint8_t dir : dirs) {
         if (stopDirection[y][x] & (1u << dir)) {
             traverseLane(y, x, dir);
         }
@@ -159,8 +160,8 @@ void createGraph() {
         nodeCount++;
         graph.emplace_back(vector<Connection>());
 
-        int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
-        for (int dir : dirs) {
+        uint8_t dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+        for (uint8_t dir : dirs) {
             Connection connection{};
             connection.dir = dir;
             connection.diamonds = set<int>();
