@@ -43,6 +43,7 @@ u_int32_t nodeCount = 0;
 u_int32_t diamCount = 0;
 vector<vector<Connection>> graph;
 
+// ===============================================================
 void readInput() {
     cin >> ySize >> xSize;
     cin >> expectedSteps;
@@ -56,7 +57,7 @@ void readInput() {
 }
 
 void processPoint(int y, int x) {
-    int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    const int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
     switch (board[y][x]) {
         case SYM_HOLE:
@@ -96,6 +97,11 @@ void processInput() {
             }
         }
     }
+
+    if (nodeID[y_start][x_start] == 0) {
+        nodeID[y_start][x_start] = nodeCount + 1;
+        nodeCount++;
+    }
     graph = vector<vector<Connection>>(nodeCount + 1);
 }
 
@@ -107,6 +113,10 @@ void traverseLane(int y, int x, uint8_t dir) {
     int altDir = (dir + 4) % 8;
     int y_delta = y + directions[altDir][0];
     int x_delta = x + directions[altDir][1];
+
+    if (diamID[y][x] > 0) {
+        connection.diamonds.insert(diamID[y][x]);
+    }
 
     while (board[y_delta][x_delta] == SYM_SPCE && (stopDirection[y_delta][x_delta] & (1u << dir)) == 0) {
         if (diamID[y_delta][x_delta] > 0) {
@@ -123,7 +133,6 @@ void traverseLane(int y, int x, uint8_t dir) {
         x_delta += directions[altDir][1];
     }
 
-    // Mine has always nodeID == 0
     if (nodeID[y_delta][x_delta] == 0) {
         return;
     }
@@ -149,52 +158,12 @@ void createNode(int y, int x) {
 void createGraph() {
     for (int y = 0; y < ySize; ++y) {
         for (int x = 0; x < xSize; ++x) {
-            if (nodeID[y][x] > 0) {
-                createNode(y, x);
-            }
-        }
-    }
-
-    if (nodeID[y_start][x_start] == 0) {
-        nodeID[y_start][x_start] = nodeCount + 1;
-        nodeCount++;
-        graph.emplace_back(vector<Connection>());
-
-        uint8_t dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
-        for (uint8_t dir : dirs) {
-            Connection connection{};
-            connection.dir = dir;
-            connection.diamonds = set<int>();
-
-            int y_delta = y_start + directions[dir][0];
-            int x_delta = x_start + directions[dir][1];
-
-            while (board[y_delta][x_delta] == SYM_SPCE && (stopDirection[y_delta][x_delta] & (1u << dir)) == 0) {
-                if (diamID[y_delta][x_delta] > 0) {
-                    connection.diamonds.insert(diamID[y_delta][x_delta]);
-                }
-
-                y_delta += directions[dir][0];
-                x_delta += directions[dir][1];
-            }
-
-            // Mine has always nodeID == 0
-            if (nodeID[y_delta][x_delta] == 0) {
-                continue;
-            }
-
-            if (diamID[y_delta][x_delta] > 0) {
-                connection.diamonds.insert(diamID[y_delta][x_delta]);
-            }
-
-            connection.to = nodeID[y_delta][x_delta];
-            graph[nodeID[y_start][x_start]].push_back(connection);
+            createNode(y, x);
         }
     }
 }
 
-
-int searchGraph(int node, int moveCount, uint8_t moveList[], const set<int> diams) {
+int searchGraph(int node, int moveCount, uint8_t moveList[], const set<int> &diams) {
     if (moveCount > expectedSteps) {
         return -1;
     }
@@ -215,6 +184,7 @@ int searchGraph(int node, int moveCount, uint8_t moveList[], const set<int> diam
     }
     return -1;
 }
+// ===============================================================
 
 void findAnswer() {
     uint8_t moveList[expectedSteps];
@@ -232,7 +202,8 @@ void findAnswer() {
 }
 
 int main() {
-    iostream::sync_with_stdio(false);
+    ios_base::sync_with_stdio(false);
+
     processInput();
     createGraph();
     findAnswer();
