@@ -261,40 +261,41 @@ void buildFinalGraph() {
 
 // Find Answer
 // ===============================================================
-int searchGraph(int node, int moveCount, uint8_t moveList[], const set<int> &diams) {
-    if (moveCount > expectedSteps) {
-        return -1;
+string searchGraph(int finalNodeID, string currentPath, set<int> diams) {
+    if (currentPath.length() > expectedSteps) {
+        return "";
     }
 
     if (diams.size() == diamCount) {
-        return moveCount;
+        return currentPath;
     }
 
-    for (auto &con : graph[node]) {
-        moveList[moveCount] = con.dir;
-        set<int> newDiams = diams;
-        newDiams.insert(con.diamonds.begin(), con.diamonds.end());
+    FinalNode *finalNode = &finalGraph[finalNodeID];
+    currentPath += (char) (finalNode->dir + '0');
+    diams.insert(finalNode->diamonds.begin(), finalNode->diamonds.end());
 
-        int result = searchGraph(con.to, moveCount + 1, moveList, newDiams);
-        if (result != -1) {
+    for (auto &con : finalGraph[finalNodeID].connections) {
+        string result = searchGraph(con.to, currentPath + con.path, diams);
+        if (!result.empty()) {
             return result;
         }
     }
-    return -1;
+    return "";
 }
 
 void findAnswer() {
-    uint8_t moveList[expectedSteps];
-    int startNode = nodeID[y_start][x_start];
+    if (diamCount == 0) {
+        cout << endl;
+        return;
+    }
 
-    int result = searchGraph(startNode, 0, moveList, set<int>());
-    if (result == -1) {
+    set<int> startSet = set<int>();
+    expectedSteps++; //Starting from guardian
+    string path = searchGraph(0, "", startSet);
+    if (path.empty()) {
         cout << "BRAK" << endl;
     } else {
-        for (int i = 0; i < result; ++i) {
-            cout << (int) moveList[i];
-        }
-        cout << endl;
+        cout << path.substr(1) << endl;
     }
 }
 
