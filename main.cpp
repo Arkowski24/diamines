@@ -192,7 +192,8 @@ void createGraph() {
 void fillFinalGraph() {
     startGuardian.to = nodeID[y_start][x_start];
     finalGraph.push_back({'s', set<int>(), vector<FinalConnection>()});
-    tMap.insert(make_pair(&startGuardian, finalGraph.size() - 1));
+    tMap.insert(make_pair(&startGuardian, 0));
+    expectedSteps++; //Starting from guardian
 
     for (auto &conVec : graph) {
         for (auto &con : conVec) {
@@ -262,17 +263,17 @@ void buildFinalGraph() {
 // Find Answer
 // ===============================================================
 string searchGraph(int finalNodeID, string currentPath, set<int> diams) {
-    if (currentPath.length() > expectedSteps) {
+    if (currentPath.length() >= expectedSteps) {
         return "";
-    }
-
-    if (diams.size() == diamCount) {
-        return currentPath;
     }
 
     FinalNode *finalNode = &finalGraph[finalNodeID];
     currentPath += (char) (finalNode->dir + '0');
     diams.insert(finalNode->diamonds.begin(), finalNode->diamonds.end());
+
+    if (diams.size() == diamCount) {
+        return currentPath;
+    }
 
     for (auto &con : finalGraph[finalNodeID].connections) {
         string result = searchGraph(con.to, currentPath + con.path, diams);
@@ -290,7 +291,6 @@ void findAnswer() {
     }
 
     set<int> startSet = set<int>();
-    expectedSteps++; //Starting from guardian
     string path = searchGraph(0, "", startSet);
     if (path.empty()) {
         cout << "BRAK" << endl;
