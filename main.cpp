@@ -19,6 +19,8 @@
 using namespace std;
 
 struct Connection {
+    int id;
+
     int to;
     uint8_t dir;
     set<int> diamonds;
@@ -60,11 +62,12 @@ int y_start, x_start;
 u_int32_t nodeCount = 0;
 u_int32_t diamCount = 0;
 vector<vector<Connection>> graph;
+u_int32_t connectionCount = 0;
 
 
 Connection startGuardian;
 vector<FinalNode> finalGraph;
-unordered_map<Connection *, int> tMap;
+unordered_map<int, int> tMap;
 
 // Initial Graph
 // ===============================================================
@@ -131,6 +134,7 @@ void processInput() {
 
 void traverseLane(int y, int x, uint8_t dir) {
     Connection connection{};
+    connection.id = connectionCount++;
     connection.dir = dir;
     connection.diamonds = set<int>();
 
@@ -149,6 +153,7 @@ void traverseLane(int y, int x, uint8_t dir) {
 
         if (nodeID[y_delta][x_delta] > 0) {
             Connection connection1 = connection;
+            connection1.id = connectionCount++;
             connection1.to = nodeID[y][x];
             graph[nodeID[y_delta][x_delta]].push_back(connection1);
         }
@@ -165,6 +170,7 @@ void traverseLane(int y, int x, uint8_t dir) {
         connection.diamonds.insert(diamID[y_delta][x_delta]);
     }
 
+    connection.id = connectionCount++;
     connection.to = nodeID[y][x];
     graph[nodeID[y_delta][x_delta]].push_back(connection);
 }
@@ -190,24 +196,26 @@ void createGraph() {
 // Final Graph
 // ===============================================================
 void fillFinalGraph() {
+    startGuardian.id = connectionCount++;
     startGuardian.to = nodeID[y_start][x_start];
-    finalGraph.push_back({'s', set<int>(), vector<FinalConnection>()});
-    tMap.insert(make_pair(&startGuardian, 0));
-    expectedSteps++; //Starting from guardian
+    startGuardian.dir = 0;
+    startGuardian.diamonds = set<int>();
+
+    finalGraph.push_back({startGuardian.dir, startGuardian.diamonds, vector<FinalConnection>()});
+    tMap.insert(make_pair(startGuardian.id, finalGraph.size() - 1));
 
     for (auto &conVec : graph) {
         for (auto &con : conVec) {
             if (!con.diamonds.empty()) {
                 finalGraph.push_back({con.dir, con.diamonds, vector<FinalConnection>()});
-                tMap.insert(make_pair(&con, finalGraph.size() - 1));
+                tMap.insert(make_pair(con.id, finalGraph.size() - 1));
             }
         }
     }
 }
 
-void findDiaConnections(queue<pair<Connection *, int>> *nodeQueue, Connection *outCon, int maxLen) {
-    int node = outCon->to;
-    FinalNode *finalNode = &finalGraph[tMap[outCon]];
+void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, Connection outCon, int maxLen) {
+    int node = outCon.to;
 
     bool visited[nodeCount];
     for (int i = 0; i < nodeCount; ++i) { visited[i] = false; }
@@ -223,20 +231,22 @@ void findDiaConnections(queue<pair<Connection *, int>> *nodeQueue, Connection *o
         int nid = entry.first;
         string path = entry.second;
 
-        if (visited[nid] || path.length() >= maxLen)
+        if (visited[nid])
             continue;
 
         visited[nid] = true;
         for (auto &con : graph[nid]) {
-            if (con.diamonds.empty()) {
+            if (con.diamonds.empty() && path.length() < maxLen) {
                 string newPath = path + (char) (con.dir + '0');
                 q.push(make_pair(con.to, newPath));
             } else {
-                int nodeToID = tMap[&con];
+                int nodeToID = tMap[con.id];
                 FinalConnection connection = {nodeToID, path};
-                finalNode->connections.push_back(connection);
+                finalGraph[tMap[outCon.id]].connections.push_back(connection);
 
-                nodeQueue->push(make_pair(&con, maxLen - path.length() - 1));
+                if (maxLen > path.length()) {
+                    nodeQueue->push(make_pair(con, maxLen - path.length() - 1));
+                }
             }
         }
     }
@@ -244,15 +254,15 @@ void findDiaConnections(queue<pair<Connection *, int>> *nodeQueue, Connection *o
 
 void buildFinalGraph() {
     fillFinalGraph();
-    queue<pair<Connection *, int>> nodeQueue;
-    set<Connection *> visited;
+    queue<pair<Connection, int>> nodeQueue;
+    set<int> visited;
 
-    nodeQueue.push(make_pair(&startGuardian, expectedSteps));
+    nodeQueue.push(make_pair(startGuardian, expectedSteps));
     while (!nodeQueue.empty()) {
         auto element = nodeQueue.front();
         nodeQueue.pop();
 
-        auto insRes = visited.insert(element.first);
+        auto insRes = visited.insert(element.first.id);
         if (!insRes.second)
             continue;
 
@@ -267,18 +277,19 @@ string searchGraph(int finalNodeID, string currentPath, set<int> diams) {
         return "";
     }
 
-    FinalNode *finalNode = &finalGraph[finalNodeID];
-    currentPath += (char) (finalNode->dir + '0');
-    diams.insert(finalNode->diamonds.begin(), finalNode->diamonds.end());
+    currentPath += (char) (finalGraph[finalNodeID].dir + '0');
+    diams.insert(finalGraph[finalNodeID].diamonds.begin(), finalGraph[finalNodeID].diamonds.end());
 
     if (diams.size() == diamCount) {
         return currentPath;
     }
 
-    for (auto &con : finalGraph[finalNodeID].connections) {
-        string result = searchGraph(con.to, currentPath + con.path, diams);
-        if (!result.empty()) {
-            return result;
+    if (currentPath.length() < expectedSteps) {
+        for (auto &con : finalGraph[finalNodeID].connections) {
+            string result = searchGraph(con.to, currentPath + con.path, diams);
+            if (!result.empty()) {
+                return result;
+            }
         }
     }
     return "";
@@ -286,7 +297,7 @@ string searchGraph(int finalNodeID, string currentPath, set<int> diams) {
 
 void findAnswer() {
     if (diamCount == 0) {
-        cout << endl;
+        cout << "" << endl;
         return;
     }
 
@@ -305,6 +316,7 @@ int main() {
     processInput();
     createGraph();
     buildFinalGraph();
+    expectedSteps++;
     findAnswer();
 
     return 0;
