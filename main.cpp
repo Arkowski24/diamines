@@ -36,6 +36,8 @@ struct FinalConnection {
 struct FinalNode {
     int dir;
     set<int> diamonds;
+
+    long maxPathFrom;
     vector<FinalConnection> connections;
 };
 
@@ -201,20 +203,20 @@ void fillFinalGraph() {
     startGuardian.dir = 0;
     startGuardian.diamonds = set<int>();
 
-    finalGraph.push_back({startGuardian.dir, startGuardian.diamonds, vector<FinalConnection>()});
+    finalGraph.push_back({startGuardian.dir, startGuardian.diamonds, 0, vector<FinalConnection>()});
     tMap.insert(make_pair(startGuardian.id, finalGraph.size() - 1));
 
     for (auto &conVec : graph) {
         for (auto &con : conVec) {
             if (!con.diamonds.empty()) {
-                finalGraph.push_back({con.dir, con.diamonds, vector<FinalConnection>()});
+                finalGraph.push_back({con.dir, con.diamonds, 0, vector<FinalConnection>()});
                 tMap.insert(make_pair(con.id, finalGraph.size() - 1));
             }
         }
     }
 }
 
-void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, Connection outCon, int maxLen) {
+void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, const Connection &outCon, int maxLen) {
     int node = outCon.to;
 
     bool visited[nodeCount];
@@ -236,13 +238,18 @@ void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, Connection outC
 
         visited[nid] = true;
         for (auto &con : graph[nid]) {
-            if (con.diamonds.empty() && path.length() < maxLen) {
-                string newPath = path + (char) (con.dir + '0');
-                q.push(make_pair(con.to, newPath));
+            if (con.diamonds.empty()) {
+                if (path.length() < maxLen) {
+                    string newPath = path + (char) (con.dir + '0');
+                    q.push(make_pair(con.to, newPath));
+                }
             } else {
                 int nodeToID = tMap[con.id];
                 FinalConnection connection = {nodeToID, path};
                 finalGraph[tMap[outCon.id]].connections.push_back(connection);
+
+                int newMaxPath = max(finalGraph[tMap[outCon.id]].maxPathFrom, maxLen - (long) path.length() - 1);
+                finalGraph[tMap[outCon.id]].maxPathFrom = newMaxPath;
 
                 if (maxLen > path.length()) {
                     nodeQueue->push(make_pair(con, maxLen - path.length() - 1));
@@ -257,6 +264,7 @@ void buildFinalGraph() {
     queue<pair<Connection, int>> nodeQueue;
     set<int> visited;
 
+    finalGraph[tMap[startGuardian.id]].maxPathFrom = expectedSteps;
     nodeQueue.push(make_pair(startGuardian, expectedSteps));
     while (!nodeQueue.empty()) {
         auto element = nodeQueue.front();
@@ -272,8 +280,8 @@ void buildFinalGraph() {
 
 // Find Answer
 // ===============================================================
-string searchGraph(int finalNodeID, string currentPath, set<int> diams) {
-    if (currentPath.length() >= expectedSteps) {
+string searchGraph(int finalNodeID, string currentPath, set<int> diams, const int maxSteps) {
+    if (currentPath.length() >= maxSteps) {
         return "";
     }
 
@@ -284,25 +292,19 @@ string searchGraph(int finalNodeID, string currentPath, set<int> diams) {
         return currentPath;
     }
 
-    if (currentPath.length() < expectedSteps) {
-        for (auto &con : finalGraph[finalNodeID].connections) {
-            string result = searchGraph(con.to, currentPath + con.path, diams);
-            if (!result.empty()) {
-                return result;
-            }
+    for (auto &con : finalGraph[finalNodeID].connections) {
+        string result = searchGraph(con.to, currentPath + con.path, diams, maxSteps);
+        if (!result.empty()) {
+            return result;
         }
     }
+
     return "";
 }
 
 void findAnswer() {
-    if (diamCount == 0) {
-        cout << "" << endl;
-        return;
-    }
-
     set<int> startSet = set<int>();
-    string path = searchGraph(0, "", startSet);
+    string path = searchGraph(0, "", startSet, expectedSteps + 1);
     if (path.empty()) {
         cout << "BRAK" << endl;
     } else {
@@ -316,7 +318,6 @@ int main() {
     processInput();
     createGraph();
     buildFinalGraph();
-    expectedSteps++;
     findAnswer();
 
     return 0;
