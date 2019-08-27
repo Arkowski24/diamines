@@ -36,9 +36,10 @@ struct FinalConnection {
 struct FinalNode {
     int dir;
     set<int> diamonds;
+    vector<FinalConnection> connections;
 
     long maxPathFrom;
-    vector<FinalConnection> connections;
+    unordered_map<int, long> minPathToDiams;
 };
 
 
@@ -203,13 +204,14 @@ void fillFinalGraph() {
     startGuardian.dir = 0;
     startGuardian.diamonds = set<int>();
 
-    finalGraph.push_back({startGuardian.dir, startGuardian.diamonds, 0, vector<FinalConnection>()});
+    finalGraph.push_back(
+            {startGuardian.dir, startGuardian.diamonds, vector<FinalConnection>(), 0, unordered_map<int, long>()});
     tMap.insert(make_pair(startGuardian.id, finalGraph.size() - 1));
 
     for (auto &conVec : graph) {
         for (auto &con : conVec) {
             if (!con.diamonds.empty()) {
-                finalGraph.push_back({con.dir, con.diamonds, 0, vector<FinalConnection>()});
+                finalGraph.push_back({con.dir, con.diamonds, vector<FinalConnection>(), 0, unordered_map<int, long>()});
                 tMap.insert(make_pair(con.id, finalGraph.size() - 1));
             }
         }
@@ -277,6 +279,44 @@ void buildFinalGraph() {
     }
 }
 
+// Min paths
+// ===============================================================
+void findMinPathsForNode(int finalID) {
+    priority_queue<pair<long, int>, std::vector<pair<long, int>>, greater<pair<long, int>>> queue;
+    bool visited[finalGraph.size()];
+    for (int i = 0; i < finalGraph.size(); ++i) {
+        visited[i] = false;
+    }
+
+    queue.push(make_pair(0, finalID));
+    while (!queue.empty()) {
+        auto elem = queue.top();
+        queue.pop();
+
+        if (visited[elem.second])
+            continue;
+        visited[elem.second] = true;
+        if (elem.first >= finalGraph[finalID].maxPathFrom)
+            continue;
+
+        for (auto &dia : finalGraph[elem.second].diamonds) {
+            finalGraph[finalID].minPathToDiams.insert(make_pair(dia, elem.first + 1));
+        }
+
+        for (auto &con: finalGraph[elem.second].connections) {
+            if ((elem.first + 1 + con.path.length()) < finalGraph[finalID].maxPathFrom)
+                queue.push(make_pair(elem.first + 1 + con.path.length(), con.to));
+        }
+    }
+}
+
+void calculateMinPaths() {
+    for (int i = 0; i < finalGraph.size(); ++i) {
+        findMinPathsForNode(i);
+    }
+}
+
+
 // Find Answer
 // ===============================================================
 string searchGraph(int finalNodeID, string currentPath, set<int> diams, const int maxSteps) {
@@ -317,6 +357,7 @@ int main() {
     processInput();
     createGraph();
     buildFinalGraph();
+    calculateMinPaths();
     findAnswer();
 
     return 0;
