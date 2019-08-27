@@ -237,22 +237,21 @@ void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, const Connectio
             continue;
 
         visited[nid] = true;
-        for (auto &con : graph[nid]) {
-            if (con.diamonds.empty()) {
-                if (path.length() < maxLen) {
+        if (path.length() < maxLen) {
+            for (auto &con : graph[nid]) {
+                if (con.diamonds.empty()) {
                     string newPath = path + (char) (con.dir + '0');
                     q.push(make_pair(con.to, newPath));
-                }
-            } else {
-                int nodeToID = tMap[con.id];
-                FinalConnection connection = {nodeToID, path};
-                finalGraph[tMap[outCon.id]].connections.push_back(connection);
+                } else {
+                    //Although we can reach the final node we cannot go further
+                    //so it's useless to add it
+                    int nodeToID = tMap[con.id];
+                    FinalConnection connection = {nodeToID, path};
+                    finalGraph[tMap[outCon.id]].connections.push_back(connection);
 
-                int newMaxPath = max(finalGraph[tMap[outCon.id]].maxPathFrom, maxLen - (long) path.length() - 1);
-                finalGraph[tMap[outCon.id]].maxPathFrom = newMaxPath;
-
-                if (maxLen > path.length()) {
-                    nodeQueue->push(make_pair(con, maxLen - path.length() - 1));
+                    int newMaxPath = max(finalGraph[tMap[outCon.id]].maxPathFrom, maxLen - (long) path.length() - 1);
+                    finalGraph[tMap[outCon.id]].maxPathFrom = newMaxPath;
+                    nodeQueue->push(make_pair(con, newMaxPath));
                 }
             }
         }
