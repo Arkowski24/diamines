@@ -6,6 +6,7 @@
 #include <tuple>
 #include <cstring>
 #include <unordered_map>
+#include <algorithm>
 
 #define BOARD_MSIZE 200
 
@@ -319,20 +320,32 @@ void calculateMinPaths() {
 
 // Find Answer
 // ===============================================================
-string searchGraph(int finalNodeID, string currentPath, set<int> diams, const int maxSteps) {
+string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToFind, const int maxSteps) {
     if (currentPath.length() >= maxSteps) {
         return "";
     }
 
     currentPath += (char) (finalGraph[finalNodeID].dir + '0');
-    diams.insert(finalGraph[finalNodeID].diamonds.begin(), finalGraph[finalNodeID].diamonds.end());
+    set<int> newDiamsToFind;
+    set_difference(diamsToFind.begin(), diamsToFind.end(), finalGraph[finalNodeID].diamonds.begin(),
+                   finalGraph[finalNodeID].diamonds.end(), inserter(newDiamsToFind, newDiamsToFind.end()));
 
-    if (diams.size() == diamCount) {
+    if (newDiamsToFind.empty()) {
         return currentPath;
     }
 
+    for (auto &diam : newDiamsToFind) {
+        auto search = finalGraph[finalNodeID].minPathToDiams.find(diam);
+        if (search == finalGraph[finalNodeID].minPathToDiams.end())
+            return "";
+
+        long minPath = search->second;
+        if (currentPath.length() + minPath >= maxSteps)
+            return "";
+    }
+
     for (auto &con : finalGraph[finalNodeID].connections) {
-        string result = searchGraph(con.to, currentPath + con.path, diams, maxSteps);
+        string result = searchGraph(con.to, currentPath + con.path, newDiamsToFind, maxSteps);
         if (!result.empty()) {
             return result;
         }
@@ -342,8 +355,12 @@ string searchGraph(int finalNodeID, string currentPath, set<int> diams, const in
 }
 
 void findAnswer() {
-    set<int> startSet = set<int>();
-    string path = searchGraph(0, "", startSet, expectedSteps + 1);
+    set<int> toFindSet = set<int>();
+    for (int i = 1; i <= diamCount; ++i) {
+        toFindSet.insert(i);
+    }
+
+    string path = searchGraph(0, "", toFindSet, expectedSteps + 1);
     if (path.empty()) {
         cout << "BRAK" << endl;
     } else {
