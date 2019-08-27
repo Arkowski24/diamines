@@ -47,6 +47,7 @@ struct FinalNode {
 char board[BOARD_MSIZE][BOARD_MSIZE]; //Y, X
 unsigned int ySize, xSize;
 int expectedSteps;
+queue<pair<Connection, int>> nodeQueue;
 
 int8_t directions[][2] = {
         {-1, 0},
@@ -205,21 +206,22 @@ void fillFinalGraph() {
     startGuardian.dir = 0;
     startGuardian.diamonds = set<int>();
 
-    finalGraph.push_back(
-            {startGuardian.dir, startGuardian.diamonds, vector<FinalConnection>(), 0, unordered_map<int, long>()});
+    finalGraph.push_back({startGuardian.dir, startGuardian.diamonds,
+                          vector<FinalConnection>(), 0, unordered_map<int, long>()});
     tMap.insert(make_pair(startGuardian.id, finalGraph.size() - 1));
 
     for (auto &conVec : graph) {
         for (auto &con : conVec) {
             if (!con.diamonds.empty()) {
-                finalGraph.push_back({con.dir, con.diamonds, vector<FinalConnection>(), 0, unordered_map<int, long>()});
+                finalGraph.push_back({con.dir, con.diamonds,
+                                      vector<FinalConnection>(), 0, unordered_map<int, long>()});
                 tMap.insert(make_pair(con.id, finalGraph.size() - 1));
             }
         }
     }
 }
 
-void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, const Connection &outCon, int maxLen) {
+void findDiaConnections(const Connection &outCon, const int maxLen) {
     int node = outCon.to;
 
     bool visited[nodeCount];
@@ -240,34 +242,34 @@ void findDiaConnections(queue<pair<Connection, int>> *nodeQueue, const Connectio
             continue;
 
         visited[nid] = true;
-        if (path.length() < maxLen) {
-            for (auto &con : graph[nid]) {
-                if (con.diamonds.empty()) {
+        for (auto &con : graph[nid]) {
+            if (con.diamonds.empty()) {
+                if (path.length() < maxLen) {
                     string newPath = path + (char) (con.dir + '0');
                     q.push(make_pair(con.to, newPath));
-                } else {
-                    //Although we can reach the final node we cannot go further
-                    //so it's useless to add it
-                    int nodeToID = tMap[con.id];
-                    FinalConnection connection = {nodeToID, path};
-                    finalGraph[tMap[outCon.id]].connections.push_back(connection);
+                }
+            } else {
+                int nodeToID = tMap[con.id];
+                FinalConnection connection = {nodeToID, path};
+                finalGraph[tMap[outCon.id]].connections.push_back(connection);
 
+                if (path.length() < maxLen) {
                     int newMaxPath = max(finalGraph[tMap[outCon.id]].maxPathFrom, maxLen - (long) path.length() - 1);
                     finalGraph[tMap[outCon.id]].maxPathFrom = newMaxPath;
-                    nodeQueue->push(make_pair(con, newMaxPath));
+                    nodeQueue.push(make_pair(con, newMaxPath));
                 }
             }
         }
+
     }
 }
 
 void buildFinalGraph() {
     fillFinalGraph();
-    queue<pair<Connection, int>> nodeQueue;
     set<int> visited;
 
     finalGraph[tMap[startGuardian.id]].maxPathFrom = expectedSteps;
-    nodeQueue.push(make_pair(startGuardian, expectedSteps));
+    nodeQueue.push(make_pair(startGuardian, finalGraph[tMap[startGuardian.id]].maxPathFrom));
     while (!nodeQueue.empty()) {
         auto element = nodeQueue.front();
         nodeQueue.pop();
@@ -276,7 +278,7 @@ void buildFinalGraph() {
         if (!insRes.second)
             continue;
 
-        findDiaConnections(&nodeQueue, element.first, element.second);
+        findDiaConnections(element.first, element.second);
     }
 }
 
@@ -297,16 +299,16 @@ void findMinPathsForNode(int finalID) {
         if (visited[elem.second])
             continue;
         visited[elem.second] = true;
-        if (elem.first >= finalGraph[finalID].maxPathFrom)
+        if (elem.first > finalGraph[finalID].maxPathFrom)
             continue;
 
         for (auto &dia : finalGraph[elem.second].diamonds) {
-            finalGraph[finalID].minPathToDiams.insert(make_pair(dia, elem.first + 1));
+            finalGraph[finalID].minPathToDiams.insert(make_pair(dia, elem.first));
         }
 
         for (auto &con: finalGraph[elem.second].connections) {
-            if ((elem.first + 1 + con.path.length()) < finalGraph[finalID].maxPathFrom)
-                queue.push(make_pair(elem.first + 1 + con.path.length(), con.to));
+            if ((elem.first + con.path.length() + 1) <= finalGraph[finalID].maxPathFrom)
+                queue.push(make_pair(elem.first + con.path.length() + 1, con.to));
         }
     }
 }
@@ -340,7 +342,7 @@ string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToF
             return "";
 
         long minPath = search->second;
-        if (currentPath.length() + minPath >= maxSteps)
+        if (currentPath.length() + minPath > maxSteps)
             return "";
     }
 
