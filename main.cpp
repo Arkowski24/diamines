@@ -223,9 +223,7 @@ void fillFinalGraph() {
 
 void findDiaConnections(const Connection &outCon, const int maxLen) {
     int node = outCon.to;
-
-    bool visited[nodeCount];
-    for (int i = 0; i < nodeCount; ++i) { visited[i] = false; }
+    set<int> visited;
 
     //ID, path
     queue<pair<int, string>> q;
@@ -238,10 +236,10 @@ void findDiaConnections(const Connection &outCon, const int maxLen) {
         int nid = entry.first;
         string path = entry.second;
 
-        if (visited[nid])
+        auto insRes = visited.insert(nid);
+        if (!insRes.second)
             continue;
 
-        visited[nid] = true;
         for (auto &con : graph[nid]) {
             if (con.diamonds.empty()) {
                 if (path.length() < maxLen) {
@@ -286,19 +284,17 @@ void buildFinalGraph() {
 // ===============================================================
 void findMinPathsForNode(int finalID) {
     priority_queue<pair<long, int>, std::vector<pair<long, int>>, greater<pair<long, int>>> queue;
-    bool visited[finalGraph.size()];
-    for (int i = 0; i < finalGraph.size(); ++i) {
-        visited[i] = false;
-    }
+    set<int> visited;
 
     queue.push(make_pair(0, finalID));
     while (!queue.empty()) {
         auto elem = queue.top();
         queue.pop();
 
-        if (visited[elem.second])
+        auto insRes = visited.insert(elem.second);
+        if (!insRes.second)
             continue;
-        visited[elem.second] = true;
+
         if (elem.first > finalGraph[finalID].maxPathFrom)
             continue;
 
