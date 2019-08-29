@@ -27,11 +27,18 @@ struct Connection {
     set<int> diamonds;
 };
 
+
 struct FinalNode;
 
 struct FinalConnection {
     int to;
     string path;
+};
+
+struct FinalPath {
+    int to;
+    string path;
+    set<int> diams;
 };
 
 struct FinalNode {
@@ -40,7 +47,8 @@ struct FinalNode {
     vector<FinalConnection> connections;
 
     long maxPathFrom;
-    unordered_map<int, long> minPathToDiams;
+    unordered_map<int, set<int>> pathsMap;
+    vector<FinalPath> pathsToDiams;
 };
 
 
@@ -198,6 +206,18 @@ void createGraph() {
     }
 }
 
+void createNewFinalNode(const Connection &con) {
+    auto diaToVector = unordered_map<int, set<int>>();
+    for (int i = 1; i <= diamCount; ++i) {
+        diaToVector.insert(make_pair(i, set<int>()));
+    }
+
+    int index = finalGraph.size();
+    finalGraph.push_back({con.dir, con.diamonds, vector<FinalConnection>(),
+                          0, diaToVector, vector<FinalPath>()});
+    tMap.insert(make_pair(con.id, index));
+}
+
 // Final Graph
 // ===============================================================
 void fillFinalGraph() {
@@ -206,16 +226,11 @@ void fillFinalGraph() {
     startGuardian.dir = 0;
     startGuardian.diamonds = set<int>();
 
-    finalGraph.push_back({startGuardian.dir, startGuardian.diamonds,
-                          vector<FinalConnection>(), 0, unordered_map<int, long>()});
-    tMap.insert(make_pair(startGuardian.id, finalGraph.size() - 1));
-
+    createNewFinalNode(startGuardian);
     for (auto &conVec : graph) {
         for (auto &con : conVec) {
             if (!con.diamonds.empty()) {
-                finalGraph.push_back({con.dir, con.diamonds,
-                                      vector<FinalConnection>(), 0, unordered_map<int, long>()});
-                tMap.insert(make_pair(con.id, finalGraph.size() - 1));
+                createNewFinalNode(con);
             }
         }
     }
@@ -283,28 +298,50 @@ void buildFinalGraph() {
 // Min paths
 // ===============================================================
 void findMinPathsForNode(int finalID) {
-    priority_queue<pair<long, int>, std::vector<pair<long, int>>, greater<pair<long, int>>> queue;
+    auto compare = [](FinalPath lhs, FinalPath rhs) {
+        return lhs.path.size() >= rhs.path.size();
+    };
+
+    priority_queue<FinalPath, vector<FinalPath>, decltype(compare)> queue(compare);
     set<int> visited;
 
-    queue.push(make_pair(0, finalID));
+    FinalPath startPath = {finalID, "", set<int>()};
+    queue.push(startPath);
     while (!queue.empty()) {
         auto elem = queue.top();
         queue.pop();
 
-        auto insRes = visited.insert(elem.second);
+        int pathToDateLen = elem.path.length();
+
+        auto insRes = visited.insert(elem.to);
         if (!insRes.second)
             continue;
 
-        if (elem.first > finalGraph[finalID].maxPathFrom)
+        if (pathToDateLen > finalGraph[finalID].maxPathFrom)
             continue;
 
-        for (auto &dia : finalGraph[elem.second].diamonds) {
-            finalGraph[finalID].minPathToDiams.insert(make_pair(dia, elem.first));
+
+        auto &diamondsSet = finalGraph[elem.to].diamonds;
+        if (!diamondsSet.empty()) {
+            elem.diams.insert(diamondsSet.begin(), diamondsSet.end());
+
+            int index = finalGraph[finalID].pathsToDiams.size();
+            finalGraph[finalID].pathsToDiams.push_back(elem);
+
+            for (auto &dia : finalGraph[elem.to].diamonds) {
+                set<int> &diaSet = finalGraph[finalID].pathsMap.find(dia)->second;
+                diaSet.insert(index);
+            }
         }
 
-        for (auto &con: finalGraph[elem.second].connections) {
-            if ((elem.first + con.path.length() + 1) <= finalGraph[finalID].maxPathFrom)
-                queue.push(make_pair(elem.first + con.path.length() + 1, con.to));
+        for (auto &con: finalGraph[elem.to].connections) {
+            int newPathLen = pathToDateLen + con.path.length() + 1;
+            if (newPathLen <= finalGraph[finalID].maxPathFrom) {
+                char dir = (char) (finalGraph[con.to].dir + '0');
+
+                FinalPath newPath = {con.to, elem.path + con.path + dir, elem.diams};
+                queue.push(newPath);
+            }
         }
     }
 }
@@ -322,30 +359,44 @@ string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToF
     if (currentPath.length() >= maxSteps) {
         return "";
     }
-
-    currentPath += (char) (finalGraph[finalNodeID].dir + '0');
-    set<int> newDiamsToFind;
-    set_difference(diamsToFind.begin(), diamsToFind.end(), finalGraph[finalNodeID].diamonds.begin(),
-                   finalGraph[finalNodeID].diamonds.end(), inserter(newDiamsToFind, newDiamsToFind.end()));
-
-    if (newDiamsToFind.empty()) {
+    if (diamsToFind.empty()) {
         return currentPath;
     }
 
-    for (auto &diam : newDiamsToFind) {
-        auto search = finalGraph[finalNodeID].minPathToDiams.find(diam);
-        if (search == finalGraph[finalNodeID].minPathToDiams.end())
-            return "";
 
-        long minPath = search->second;
-        if (currentPath.length() + minPath > maxSteps)
+    FinalNode &finalNode = finalGraph[finalNodeID];
+    auto pathsToCheck = set<int>();
+    for (auto &diam : diamsToFind) {
+        auto search = finalNode.pathsMap.find(diam);
+        set<int> &conSet = search->second;
+        bool inserted = false;
+
+        for (auto &con : conSet) {
+            auto &finPath = finalNode.pathsToDiams[con];
+            if (currentPath.length() + finPath.path.length() <= maxSteps) {
+                pathsToCheck.insert(con);
+                inserted = true;
+            }
+        }
+
+        if (!inserted) {
             return "";
+        }
     }
 
-    for (auto &con : finalGraph[finalNodeID].connections) {
-        string result = searchGraph(con.to, currentPath + con.path, newDiamsToFind, maxSteps);
-        if (!result.empty()) {
-            return result;
+    for (auto &pathID : pathsToCheck) {
+        auto &finPath = finalNode.pathsToDiams[pathID];
+        auto newDiams = set<int>();
+        set_difference(diamsToFind.begin(), diamsToFind.end(), finPath.diams.begin(),
+                       finPath.diams.end(), inserter(newDiams, newDiams.end()));
+
+        if (newDiams.empty()) {
+            return currentPath + finPath.path;
+        }
+
+        string res = searchGraph(finPath.to, currentPath + finPath.path, newDiams, maxSteps);
+        if (!res.empty()) {
+            return res;
         }
     }
 
@@ -358,11 +409,11 @@ void findAnswer() {
         toFindSet.insert(i);
     }
 
-    string path = searchGraph(0, "", toFindSet, expectedSteps + 1);
+    string path = searchGraph(0, "", toFindSet, expectedSteps);
     if (path.empty()) {
         cout << "BRAK" << endl;
     } else {
-        cout << path.substr(1) << endl;
+        cout << path << endl;
     }
 }
 
