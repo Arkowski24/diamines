@@ -51,11 +51,17 @@ struct FinalNode {
     vector<FinalPath> pathsToDiams;
 };
 
+struct TempToSort {
+    int id;
+    set<int> diams;
+};
 
 char board[BOARD_MSIZE][BOARD_MSIZE]; //Y, X
 unsigned int ySize, xSize;
 int expectedSteps;
 queue<pair<Connection, int>> nodeQueue;
+
+int rec = 0;
 
 int8_t directions[][2] = {
         {-1, 0},
@@ -298,7 +304,7 @@ void buildFinalGraph() {
 // Min paths
 // ===============================================================
 void findMinPathsForNode(int finalID) {
-    auto compare = [](FinalPath lhs, FinalPath rhs) {
+    auto compare = [](const FinalPath &lhs, const FinalPath &rhs) {
         return lhs.path.size() >= rhs.path.size();
     };
 
@@ -384,8 +390,16 @@ string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToF
         }
     }
 
+    rec++;
+    if (rec == 33) {
+        cout << "xd";
+    }
+
+    auto newDiamsVec = vector<TempToSort>();
+    auto newDiamsSort = vector<pair<int, int>>();
+
     for (auto &pathID : pathsToCheck) {
-        auto &finPath = finalNode.pathsToDiams[pathID];
+        auto finPath = finalNode.pathsToDiams[pathID];
         auto newDiams = set<int>();
         set_difference(diamsToFind.begin(), diamsToFind.end(), finPath.diams.begin(),
                        finPath.diams.end(), inserter(newDiams, newDiams.end()));
@@ -394,7 +408,16 @@ string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToF
             return currentPath + finPath.path;
         }
 
-        string res = searchGraph(finPath.to, currentPath + finPath.path, newDiams, maxSteps);
+        int index = newDiamsVec.size();
+        newDiamsVec.push_back({pathID, newDiams});
+        newDiamsSort.emplace_back(newDiams.size(), index);
+    }
+    sort(newDiamsSort.begin(), newDiamsSort.end(), greater<pair<int, int>>());
+
+    for (auto &nPair: newDiamsSort) {
+        auto &nDiams = newDiamsVec[nPair.second];
+        auto &finPath = finalNode.pathsToDiams[nDiams.id];
+        string res = searchGraph(finPath.to, currentPath + finPath.path, nDiams.diams, maxSteps);
         if (!res.empty()) {
             return res;
         }
