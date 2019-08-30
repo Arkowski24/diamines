@@ -51,17 +51,10 @@ struct FinalNode {
     vector<FinalPath> pathsToDiams;
 };
 
-struct TempToSort {
-    int id;
-    set<int> diams;
-};
-
 char board[BOARD_MSIZE][BOARD_MSIZE]; //Y, X
 unsigned int ySize, xSize;
 int expectedSteps;
 queue<pair<Connection, int>> nodeQueue;
-
-int rec = 0;
 
 int8_t directions[][2] = {
         {-1, 0},
@@ -304,7 +297,7 @@ void buildFinalGraph() {
 // Min paths
 // ===============================================================
 void findMinPathsForNode(int finalID) {
-    auto compare = [](const FinalPath &lhs, const FinalPath &rhs) {
+    auto compare = [](FinalPath lhs, FinalPath rhs) {
         return lhs.path.size() >= rhs.path.size();
     };
 
@@ -328,13 +321,16 @@ void findMinPathsForNode(int finalID) {
 
 
         auto &diamondsSet = finalGraph[elem.to].diamonds;
-        if (!diamondsSet.empty()) {
-            elem.diams.insert(diamondsSet.begin(), diamondsSet.end());
+        set<int> newDiams;
+        set_difference(diamondsSet.begin(), diamondsSet.end(), elem.diams.begin(),
+                       elem.diams.end(), inserter(newDiams, newDiams.end()));
 
+        if (!newDiams.empty()) {
+            elem.diams.insert(newDiams.begin(), newDiams.end());
             int index = finalGraph[finalID].pathsToDiams.size();
             finalGraph[finalID].pathsToDiams.push_back(elem);
 
-            for (auto &dia : finalGraph[elem.to].diamonds) {
+            for (int dia : newDiams) {
                 set<int> &diaSet = finalGraph[finalID].pathsMap.find(dia)->second;
                 diaSet.insert(index);
             }
@@ -390,17 +386,9 @@ string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToF
         }
     }
 
-    rec++;
-    if (rec == 33) {
-        cout << "xd";
-    }
-
-    auto newDiamsVec = vector<TempToSort>();
-    auto newDiamsSort = vector<pair<int, int>>();
-
     for (auto &pathID : pathsToCheck) {
-        auto finPath = finalNode.pathsToDiams[pathID];
-        auto newDiams = set<int>();
+        auto &finPath = finalNode.pathsToDiams[pathID];
+        set<int> newDiams;
         set_difference(diamsToFind.begin(), diamsToFind.end(), finPath.diams.begin(),
                        finPath.diams.end(), inserter(newDiams, newDiams.end()));
 
@@ -408,16 +396,7 @@ string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToF
             return currentPath + finPath.path;
         }
 
-        int index = newDiamsVec.size();
-        newDiamsVec.push_back({pathID, newDiams});
-        newDiamsSort.emplace_back(newDiams.size(), index);
-    }
-    sort(newDiamsSort.begin(), newDiamsSort.end(), greater<pair<int, int>>());
-
-    for (auto &nPair: newDiamsSort) {
-        auto &nDiams = newDiamsVec[nPair.second];
-        auto &finPath = finalNode.pathsToDiams[nDiams.id];
-        string res = searchGraph(finPath.to, currentPath + finPath.path, nDiams.diams, maxSteps);
+        string res = searchGraph(finPath.to, currentPath + finPath.path, newDiams, maxSteps);
         if (!res.empty()) {
             return res;
         }
