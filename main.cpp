@@ -4,8 +4,8 @@
 #include <set>
 #include <queue>
 #include <tuple>
+#include <string>
 #include <cstring>
-#include <unordered_map>
 #include <algorithm>
 
 #define BOARD_MSIZE 200
@@ -20,41 +20,41 @@
 using namespace std;
 
 struct Connection {
-    int id;
+    int64_t id;
 
-    int to;
+    int32_t to;
     uint8_t dir;
-    set<int> diamonds;
+    set<int32_t> diamonds;
 };
 
 
 struct FinalNode;
 
 struct FinalConnection {
-    int to;
+    int64_t to;
     string path;
 };
 
 struct FinalPath {
-    int to;
+    int64_t to;
     string path;
-    set<int> diams;
+    set<int32_t> diams;
 };
 
 struct FinalNode {
-    int dir;
-    set<int> diamonds;
+    uint8_t dir;
+    set<int32_t> diamonds;
     vector<FinalConnection> connections;
 
-    long maxPathFrom;
-    unordered_map<int, set<int>> pathsMap;
+    int64_t maxPathFrom;
+    vector<set<int64_t>> pathsMap;
     vector<FinalPath> pathsToDiams;
 };
 
 char board[BOARD_MSIZE][BOARD_MSIZE]; //Y, X
-unsigned int ySize, xSize;
-int expectedSteps;
-queue<pair<Connection, int>> nodeQueue;
+int32_t ySize, xSize;
+int64_t expectedSteps;
+queue<pair<Connection *, int64_t>> nodeQueue;
 
 int8_t directions[][2] = {
         {-1, 0},
@@ -67,19 +67,19 @@ int8_t directions[][2] = {
         {-1, -1}
 };
 uint8_t stopDirection[BOARD_MSIZE][BOARD_MSIZE] = {0};
-u_int32_t nodeID[BOARD_MSIZE][BOARD_MSIZE] = {0};
-u_int32_t diamID[BOARD_MSIZE][BOARD_MSIZE] = {0};
+int32_t nodeID[BOARD_MSIZE][BOARD_MSIZE] = {0};
+int32_t diamID[BOARD_MSIZE][BOARD_MSIZE] = {0};
 
-int y_start, x_start;
-u_int32_t nodeCount = 0;
-u_int32_t diamCount = 0;
+int32_t y_start, x_start;
+int32_t nodeCount = 0;
+int32_t diamCount = 0;
 vector<vector<Connection>> graph;
-u_int32_t connectionCount = 0;
+int64_t connectionCount = 0;
 
 
 Connection startGuardian;
 vector<FinalNode> finalGraph;
-unordered_map<int, int> tMap;
+vector<int64_t> tMap;
 
 // Initial Graph
 // ===============================================================
@@ -88,22 +88,22 @@ void readInput() {
     cin >> expectedSteps;
     cin.ignore(1);
 
-    for (int i = 0; i < ySize; i++) {
+    for (int32_t i = 0; i < ySize; i++) {
         string boardLine;
         getline(cin, boardLine);
         boardLine.copy(board[i], xSize);
     }
 }
 
-void processPoint(int y, int x) {
-    const int dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+void processPoint(const int32_t &y, const int32_t &x) {
+    int8_t dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
     switch (board[y][x]) {
         case SYM_HOLE:
             stopDirection[y][x] = 0xFF;
             return;
         case SYM_SPCE:
-            for (int dir : dirs) {
+            for (int8_t dir : dirs) {
                 int y_i = y + directions[dir][0];
                 int x_i = x + directions[dir][1];
                 if (board[y_i][x_i] == SYM_WALL)
@@ -117,8 +117,8 @@ void processPoint(int y, int x) {
 void processInput() {
     readInput();
 
-    for (int y = 0; y < ySize; ++y) {
-        for (int x = 0; x < xSize; ++x) {
+    for (int32_t y = 0; y < ySize; ++y) {
+        for (int32_t x = 0; x < xSize; ++x) {
             if (board[y][x] == SYM_PCAR) {
                 y_start = y;
                 x_start = x;
@@ -144,11 +144,11 @@ void processInput() {
     graph = vector<vector<Connection>>(nodeCount + 1);
 }
 
-void traverseLane(int y, int x, uint8_t dir) {
+void traverseLane(const int32_t &y, const int32_t &x, const uint8_t dir) {
     Connection connection{};
     connection.id = connectionCount++;
     connection.dir = dir;
-    connection.diamonds = set<int>();
+    connection.diamonds = set<int32_t>();
 
     int altDir = (dir + 4) % 8;
     int y_delta = y + directions[altDir][0];
@@ -187,10 +187,10 @@ void traverseLane(int y, int x, uint8_t dir) {
     graph[nodeID[y_delta][x_delta]].push_back(connection);
 }
 
-void createNode(int y, int x) {
-    uint8_t dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+void createNode(const int32_t &y, const int32_t &x) {
+    int8_t dirs[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
-    for (uint8_t dir : dirs) {
+    for (int8_t dir : dirs) {
         if (stopDirection[y][x] & (1u << dir)) {
             traverseLane(y, x, dir);
         }
@@ -198,23 +198,23 @@ void createNode(int y, int x) {
 }
 
 void createGraph() {
-    for (int y = 0; y < ySize; ++y) {
-        for (int x = 0; x < xSize; ++x) {
+    for (int32_t y = 0; y < ySize; ++y) {
+        for (int32_t x = 0; x < xSize; ++x) {
             createNode(y, x);
         }
     }
 }
 
 void createNewFinalNode(const Connection &con) {
-    auto diaToVector = unordered_map<int, set<int>>();
-    for (int i = 1; i <= diamCount; ++i) {
-        diaToVector.insert(make_pair(i, set<int>()));
+    vector<set<int64_t>> diaToVector;
+    for (int32_t i = 0; i <= diamCount; ++i) {
+        diaToVector.emplace_back(set<int64_t>());
     }
 
-    int index = finalGraph.size();
+    int64_t index = finalGraph.size();
     finalGraph.push_back({con.dir, con.diamonds, vector<FinalConnection>(),
                           0, diaToVector, vector<FinalPath>()});
-    tMap.insert(make_pair(con.id, index));
+    tMap[con.id] = index;
 }
 
 // Final Graph
@@ -223,7 +223,8 @@ void fillFinalGraph() {
     startGuardian.id = connectionCount++;
     startGuardian.to = nodeID[y_start][x_start];
     startGuardian.dir = 0;
-    startGuardian.diamonds = set<int>();
+    startGuardian.diamonds = set<int32_t>();
+    tMap = vector<int64_t>(connectionCount + 1);
 
     createNewFinalNode(startGuardian);
     for (auto &conVec : graph) {
@@ -235,16 +236,16 @@ void fillFinalGraph() {
     }
 }
 
-void findDiaConnections(const Connection &outCon, const int maxLen) {
-    int node = outCon.to;
-    set<int> visited;
+void findDiaConnections(const Connection *outCon, const int64_t &maxLen) {
+    int32_t node = outCon->to;
+    set<int32_t> visited;
 
     //ID, path
-    queue<pair<int, string>> q;
+    queue<pair<int32_t, string>> q;
     q.push(make_pair(node, ""));
 
     while (!q.empty()) {
-        pair<int, string> entry = q.front();
+        pair<int32_t, string> entry = q.front();
         q.pop();
 
         int nid = entry.first;
@@ -254,6 +255,7 @@ void findDiaConnections(const Connection &outCon, const int maxLen) {
         if (!insRes.second)
             continue;
 
+        int64_t nodeOutID = tMap[outCon->id];
         for (auto &con : graph[nid]) {
             if (con.diamonds.empty()) {
                 if (path.length() < maxLen) {
@@ -261,14 +263,14 @@ void findDiaConnections(const Connection &outCon, const int maxLen) {
                     q.push(make_pair(con.to, newPath));
                 }
             } else {
-                int nodeToID = tMap[con.id];
+                int64_t nodeToID = tMap[con.id];
                 FinalConnection connection = {nodeToID, path};
-                finalGraph[tMap[outCon.id]].connections.push_back(connection);
+                finalGraph[nodeOutID].connections.push_back(connection);
 
                 if (path.length() < maxLen) {
-                    int newMaxPath = max(finalGraph[tMap[outCon.id]].maxPathFrom, maxLen - (long) path.length() - 1);
-                    finalGraph[tMap[outCon.id]].maxPathFrom = newMaxPath;
-                    nodeQueue.push(make_pair(con, newMaxPath));
+                    int64_t newMaxPath = max(finalGraph[nodeOutID].maxPathFrom, maxLen - (int64_t) path.length() - 1);
+                    finalGraph[nodeOutID].maxPathFrom = newMaxPath;
+                    nodeQueue.push(make_pair(&con, newMaxPath));
                 }
             }
         }
@@ -278,15 +280,16 @@ void findDiaConnections(const Connection &outCon, const int maxLen) {
 
 void buildFinalGraph() {
     fillFinalGraph();
-    set<int> visited;
+    set<int64_t> visited;
 
-    finalGraph[tMap[startGuardian.id]].maxPathFrom = expectedSteps;
-    nodeQueue.push(make_pair(startGuardian, finalGraph[tMap[startGuardian.id]].maxPathFrom));
+    int64_t startId = tMap[startGuardian.id];
+    finalGraph[startId].maxPathFrom = expectedSteps;
+    nodeQueue.push(make_pair(&startGuardian, finalGraph[startId].maxPathFrom));
     while (!nodeQueue.empty()) {
         auto element = nodeQueue.front();
         nodeQueue.pop();
 
-        auto insRes = visited.insert(element.first.id);
+        auto insRes = visited.insert(element.first->id);
         if (!insRes.second)
             continue;
 
@@ -296,23 +299,24 @@ void buildFinalGraph() {
 
 // Min paths
 // ===============================================================
-void findMinPathsForNode(int finalID) {
-    auto compare = [](FinalPath lhs, FinalPath rhs) {
-        return lhs.path.size() >= rhs.path.size();
+void findMinPathsForNode(const int64_t &finalID) {
+    auto compare = [](const pair<int64_t, int64_t> &lhs, const pair<int64_t, int64_t> &rhs) {
+        return lhs.first >= rhs.first;
     };
 
-    priority_queue<FinalPath, vector<FinalPath>, decltype(compare)> queue(compare);
-    set<int> visited;
+    vector<FinalPath> pathsVec;
+    priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>, decltype(compare)> queue(compare);
+    set<int64_t> visited;
 
-    FinalPath startPath = {finalID, "", set<int>()};
-    queue.push(startPath);
+    pathsVec.push_back({finalID, "", set<int32_t>()});
+    queue.push(make_pair(0, 0));
     while (!queue.empty()) {
-        auto elem = queue.top();
+        auto elemQ = queue.top();
         queue.pop();
 
-        int pathToDateLen = elem.path.length();
+        int64_t pathToDateLen = pathsVec[elemQ.second].path.length();
 
-        auto insRes = visited.insert(elem.to);
+        auto insRes = visited.insert(pathsVec[elemQ.second].to);
         if (!insRes.second)
             continue;
 
@@ -320,36 +324,36 @@ void findMinPathsForNode(int finalID) {
             continue;
 
 
-        auto &diamondsSet = finalGraph[elem.to].diamonds;
-        set<int> newDiams;
-        set_difference(diamondsSet.begin(), diamondsSet.end(), elem.diams.begin(),
-                       elem.diams.end(), inserter(newDiams, newDiams.end()));
+        auto &diamondsSet = finalGraph[pathsVec[elemQ.second].to].diamonds;
+        set<int32_t> newDiams;
+        set_difference(diamondsSet.begin(), diamondsSet.end(), pathsVec[elemQ.second].diams.begin(),
+                       pathsVec[elemQ.second].diams.end(), inserter(newDiams, newDiams.end()));
 
         if (!newDiams.empty()) {
-            elem.diams.insert(newDiams.begin(), newDiams.end());
-            int index = finalGraph[finalID].pathsToDiams.size();
-            finalGraph[finalID].pathsToDiams.push_back(elem);
+            pathsVec[elemQ.second].diams.insert(newDiams.begin(), newDiams.end());
+            int64_t index = finalGraph[finalID].pathsToDiams.size();
+            finalGraph[finalID].pathsToDiams.push_back(pathsVec[elemQ.second]);
 
             for (int dia : newDiams) {
-                set<int> &diaSet = finalGraph[finalID].pathsMap.find(dia)->second;
-                diaSet.insert(index);
+                finalGraph[finalID].pathsMap[dia].insert(index);
             }
         }
 
-        for (auto &con: finalGraph[elem.to].connections) {
-            int newPathLen = pathToDateLen + con.path.length() + 1;
+        for (auto &con: finalGraph[pathsVec[elemQ.second].to].connections) {
+            int64_t newPathLen = pathToDateLen + con.path.length() + 1;
             if (newPathLen <= finalGraph[finalID].maxPathFrom) {
                 char dir = (char) (finalGraph[con.to].dir + '0');
 
-                FinalPath newPath = {con.to, elem.path + con.path + dir, elem.diams};
-                queue.push(newPath);
+                string newP = pathsVec[elemQ.second].path + con.path + dir;
+                pathsVec.push_back({con.to, newP, pathsVec[elemQ.second].diams});
+                queue.push(make_pair(newP.size(), pathsVec.size() - 1));
             }
         }
     }
 }
 
 void calculateMinPaths() {
-    for (int i = 0; i < finalGraph.size(); ++i) {
+    for (int64_t i = 0; i < finalGraph.size(); ++i) {
         findMinPathsForNode(i);
     }
 }
@@ -357,65 +361,68 @@ void calculateMinPaths() {
 
 // Find Answer
 // ===============================================================
-string searchGraph(int finalNodeID, string currentPath, const set<int> &diamsToFind, const int maxSteps) {
-    if (currentPath.length() >= maxSteps) {
-        return "";
+int64_t searchGraph(const int64_t &finalNodeID, char *currentPath, const int64_t &currentPathSize,
+                    const set<int32_t> &diamsToFind, const int64_t &maxSteps) {
+    if (currentPathSize >= maxSteps) {
+        return 0;
     }
     if (diamsToFind.empty()) {
-        return currentPath;
+        return currentPathSize;
     }
 
 
     FinalNode &finalNode = finalGraph[finalNodeID];
-    auto pathsToCheck = set<int>();
+    set<int32_t> pathsToCheck;
     for (auto &diam : diamsToFind) {
-        auto search = finalNode.pathsMap.find(diam);
-        set<int> &conSet = search->second;
         bool inserted = false;
 
-        for (auto &con : conSet) {
+        for (auto &con : finalNode.pathsMap[diam]) {
             auto &finPath = finalNode.pathsToDiams[con];
-            if (currentPath.length() + finPath.path.length() <= maxSteps) {
+            if (currentPathSize + finPath.path.length() <= maxSteps) {
                 pathsToCheck.insert(con);
                 inserted = true;
             }
         }
 
         if (!inserted) {
-            return "";
+            return 0;
         }
     }
 
-    for (auto &pathID : pathsToCheck) {
+    for (int64_t pathID : pathsToCheck) {
         auto &finPath = finalNode.pathsToDiams[pathID];
-        set<int> newDiams;
+        set<int32_t> newDiams;
         set_difference(diamsToFind.begin(), diamsToFind.end(), finPath.diams.begin(),
                        finPath.diams.end(), inserter(newDiams, newDiams.end()));
 
+        strcpy((currentPath + currentPathSize), finPath.path.c_str());
         if (newDiams.empty()) {
-            return currentPath + finPath.path;
+            return currentPathSize + finPath.path.length();
         }
 
-        string res = searchGraph(finPath.to, currentPath + finPath.path, newDiams, maxSteps);
-        if (!res.empty()) {
+        int64_t res = searchGraph(finPath.to, currentPath, currentPathSize + finPath.path.length(), newDiams, maxSteps);
+        if (res > 0) {
             return res;
         }
     }
 
-    return "";
+    return 0;
 }
 
 void findAnswer() {
-    set<int> toFindSet = set<int>();
-    for (int i = 1; i <= diamCount; ++i) {
+    set<int32_t> toFindSet;
+    for (int32_t i = 1; i <= diamCount; ++i) {
         toFindSet.insert(i);
     }
 
-    string path = searchGraph(0, "", toFindSet, expectedSteps);
-    if (path.empty()) {
+    char finalPath[expectedSteps + 1];
+    int64_t path = searchGraph(0, finalPath, 0, toFindSet, expectedSteps);
+    if (path == 0) {
         cout << "BRAK" << endl;
     } else {
-        cout << path << endl;
+        for (int64_t i = 0; i < path; ++i) {
+            cout << finalPath[i];
+        }
     }
 }
 
